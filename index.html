@@ -1,0 +1,345 @@
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Home</title>
+    </head>
+    <body>
+
+    </body>
+</html>
+
+
+
+<script>
+
+
+class GameObject {
+    constructor(divId, left, top, width, height, imageSrc = null) {
+        this.divId = divId;
+
+        // Перевірка, чи елемент div вже існує
+        this.div = document.getElementById(divId);
+        if (this.div) {
+            // Викидаємо помилку, якщо елемент div вже існує
+            throw new Error(`Element with ID ${divId} already exists`);
+        }
+
+        // Отримуємо елемент div за ID
+        this.div = document.createElement('div');
+        this.div.id = this.divId;
+        // Встановлюємо стилі для нового div
+        this.div.style.width = width;
+        this.div.style.height = height;
+        this.div.style.position = 'absolute';
+        this.div.style.left = left + 'px';
+        this.div.style.top = top + 'px';
+
+        this.hp = 100; // Здоров'я об'єкта
+        this.maxHp = 100; // Максимальне здоров'я об'єкта
+        this.div.innerHTML = `<p style="position: absolute; top: 0; right: 0; color: red; font-size: 12px; margin: 0;"></p>`;
+        this.setHp(this.hp);
+
+        // Перевіряємо, чи передано URL зображення
+        if (imageSrc) {
+            this.img = document.createElement('img');
+            this.img.src = imageSrc;
+            this.img.style.width = '100%'; // Зображення буде розтягнуте по ширині блоку
+            this.img.style.height = '100%'; // Зображення буде розтягнуте по висоті блоку
+            this.div.appendChild(this.img); // Додаємо зображення до div
+        } else {
+            this.div.style.backgroundColor = 'red'; // Встановлюємо червоний колір фону
+        }
+        // Додаємо новий div на сторінку
+        document.body.appendChild(this.div);
+
+
+        this.speed = 10; // pixels per second
+        this.isDivSelected = false;
+        this.originalWidth = null;
+        this.originalHeight = null;
+
+        // Додаємо обробник кліків для div
+        this.addEventListenerForDiv();
+    }
+
+    addEventListenerForDiv(){
+        // Обробник кліків для div
+        this.div.addEventListener('click', () => {
+            this.toggleBorder();
+        });
+    }
+
+    setHp(hp) {
+        this.hp = hp;
+        this.div.querySelector('p').innerHTML = `${this.hp}&#10084;`;
+    }
+
+    toggleBorder() {
+        this.isDivSelected = !this.isDivSelected;
+
+        // Застосовуємо внутрішню жовту рамку, якщо ifDivOnClick дорівнює true
+        if (this.isDivSelected) {
+            var borderWidth = 3; // товщина рамки
+            this.originalWidth = parseInt(getComputedStyle(this.div).width);
+            this.originalHeight = parseInt(getComputedStyle(this.div).height);
+            
+            // встановлюємо рамку і віднімаємо товщину рамки від розмірів елемента
+            this.div.style.border = `${borderWidth}px solid yellow`;
+            this.div.style.width = `${this.originalWidth - borderWidth * 2}px`;
+            this.div.style.height = `${this.originalHeight - borderWidth * 2}px`;
+        } else {
+            this.div.style.border = 'none'; // видаляємо рамку
+            if (this.originalWidth !== null && this.originalHeight !== null) {
+                this.div.style.width = `${this.originalWidth}px`; // відновлюємо розміри елемента
+                this.div.style.height = `${this.originalHeight}px`;
+            }
+        }
+    }
+}
+
+
+class Location extends GameObject {
+    constructor(divId, left, top, width, height, imageSrc = null) {
+        super(divId, left, top, width, height, imageSrc);
+        this.setHp(1000);
+        this.maxHp = 1000;
+    }
+}
+
+
+class Warrior extends GameObject {
+    constructor(divId, left, top, width, height, imageSrc = null) {
+        super(divId, left, top, width, height, imageSrc);
+        // Додаємо обробник подій клавіатури
+        this.div.style.zIndex = '100';
+        document.addEventListener('keydown', (event) => {
+            this.handleKeydown(event);
+        });
+
+        this.div.addEventListener('click', () => {
+            this.moveDivToTopIfOnClick();
+        });
+
+
+        this.isInLocation = false;
+        this.isCollisionWithWarrior = false;
+        this.currentInteractionLocation = null;
+        this.currentInteractionWarrior = null;
+        setInterval(() => {
+            this.ifCollisionWithLocation();
+            this.ifCollisionWithWarrior();
+            this.interactionWithLocation();
+            this.interactionWithWarrior();
+            this.checkWarriorDie();   
+        }, 1000);
+    }
+
+    moveDivToTopIfOnClick() {
+        if (this.isDivSelected){
+            this.div.style.zIndex = '1000';
+        } else {
+            this.div.style.zIndex = '100';
+        }
+    }
+
+    checkWarriorDie() {
+        if (this.hp <= 0) {
+            this.div.remove();
+            // ДОРОБИТИ видалення об'єкта зі масиву objectList 
+            // покишо вони там лишаються но ніяк не заважають   
+        }
+    }
+
+    interactionWithLocation(){
+        if (this.isInLocation){
+            if (this.hp < this.maxHp){
+                this.setHp(this.hp + 10);
+            }
+        }
+    }
+
+    interactionWithWarrior() {
+        if (this.isCollisionWithWarrior) {
+            this.setHp(this.hp - 10);
+        }
+    }
+
+    ifCollisionWithLocation() {
+        for (const obj of objectList){
+            if (obj instanceof Location){
+                if (this.currentPositionLeft < parseInt(getComputedStyle(obj.div).left) + parseInt(getComputedStyle(obj.div).width) &&
+                    this.currentPositionLeft + parseInt(getComputedStyle(this.div).width) > parseInt(getComputedStyle(obj.div).left) &&
+                    this.currentPositionTop < parseInt(getComputedStyle(obj.div).top) + parseInt(getComputedStyle(obj.div).height) &&
+                    this.currentPositionTop + parseInt(getComputedStyle(this.div).height) > parseInt(getComputedStyle(obj.div).top)) {
+                    this.isInLocation = true;
+                    this.currentInteractionLocation = obj;
+                } else {
+                    this.isInLocation = false;
+                    this.currentInteractionLocation = null;
+                }
+            }
+        }
+    }
+
+    ifCollisionWithWarrior() {
+        for (const obj of objectList) {
+            if (obj instanceof Warrior && obj !== this) {
+                const currentPositionLeft = parseInt(getComputedStyle(this.div).left);
+                const currentPositionTop = parseInt(getComputedStyle(this.div).top);
+                const divWidth = parseInt(this.div.style.width);
+                const divHeight = parseInt(this.div.style.height);
+                
+                if (currentPositionLeft < parseInt(getComputedStyle(obj.div).left) + parseInt(getComputedStyle(obj.div).width) &&
+                    currentPositionLeft + divWidth > parseInt(getComputedStyle(obj.div).left) &&
+                    currentPositionTop < parseInt(getComputedStyle(obj.div).top) + parseInt(getComputedStyle(obj.div).height) &&
+                    currentPositionTop + divHeight > parseInt(getComputedStyle(obj.div).top)) {
+                    this.isCollisionWithWarrior = true;
+                    this.currentInteractionWarrior = obj;
+                    break; // Вийти з циклу, коли зіткнення знайдено
+                } else {
+                    this.isCollisionWithWarrior = false;
+                    this.currentInteractionWarrior = null;
+                }
+            }
+        }
+    }
+    
+
+    handleKeydown(event) {
+        if (this.isDivSelected) {
+            
+            this.currentPositionLeft = parseInt(getComputedStyle(this.div).left);
+            this.currentPositionTop = parseInt(getComputedStyle(this.div).top);
+
+            var bodyWidth = document.body.clientWidth;
+            var bodyHeight = document.body.clientHeight;
+            var divWidth = parseInt(this.div.style.width);
+            var divHeight = parseInt(this.div.style.height);
+
+            switch (event.key) {
+                case 'ArrowLeft':
+                    if (this.currentPositionLeft - this.speed >= 0) {
+                        this.div.style.left = this.currentPositionLeft - this.speed + 'px';
+                    }
+                    break;
+                case 'ArrowRight':
+                    if (this.currentPositionLeft + divWidth + this.speed <= bodyWidth) {
+                        this.div.style.left = this.currentPositionLeft + this.speed + 'px';
+                    }
+                    break;
+                case 'ArrowUp':
+                    if (this.currentPositionTop - this.speed >= 0) {
+                        this.div.style.top = this.currentPositionTop - this.speed + 'px';
+                    }
+                    break;
+                case 'ArrowDown':
+                    if (this.currentPositionTop + divHeight + this.speed <= bodyHeight) {
+                        this.div.style.top = this.currentPositionTop + this.speed + 'px';
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+}
+
+
+class ModalWindow {
+    constructor(activationKey = null) {
+        this.modal = document.createElement('div');
+
+        this.modal.style.zIndex = '10000';
+        this.modal.style.position = 'fixed';
+        this.modal.className = 'modalWindow';
+        this.modal.style.width = '300px';
+        this.modal.style.height = '300px';
+        this.modal.style.position = 'center';
+        this.modal.style.backgroundColor = 'white';
+        this.modal.style.border = '1px solid black';
+        this.modal.style.borderRadius = '5px';
+        this.modal.style.padding = '10px';
+        this.modal.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
+        this.modal.style.display = 'none';
+        this.modal.style.zIndex = '1000';
+        this.modal.style.position = 'fixed';
+        this.modal.style.left = '50%';
+        this.modal.style.top = '50%';
+        this.modal.style.transform = 'translate(-50%, -50%)';
+
+        document.body.appendChild(this.modal);
+
+        this.activationKey = activationKey;
+        document.addEventListener('keydown', (event) => {
+            if (event.key === this.activationKey.toLowerCase() || event.key === this.activationKey.toUpperCase()) {
+                if (this.modal.style.display === 'none') {
+                    this.show();
+                } else {
+                    this.hide();
+                }
+            }
+        });
+    }
+    show() {
+        this.modal.style.display = 'block';
+    }
+    hide() {
+        this.modal.style.display = 'none';
+    }
+
+}
+
+
+class AddWarriorModalWindow extends ModalWindow{
+    constructor(activationKey = null) {
+        super(activationKey);
+        this.modal.innerHTML = `
+            <h2>Додати нового воїна</h2>
+            <label for="warriorLeft">Розташування воїна(відступ зліва): </label>
+            <input type="text" id="warriorLeft" name="warriorLeft"><br><br>
+            <label for="warriorTop">Розташування воїна(відступ згори): </label>
+            <input type="text" id="warriorTop" name="warriorTop"><br><br>
+            <button id="addWarriorButton">Додати воїна</button>
+        `;
+
+        this.modal.querySelector('#addWarriorButton').addEventListener('click', () => {
+            var warriorLeft = this.modal.querySelector('#warriorLeft').value;
+            var warriorTop = this.modal.querySelector('#warriorTop').value;
+            addNewWarrior(warriorLeft, warriorTop);
+            this.hide();
+        });
+    }
+}
+
+function addNewWarrior(warriorLeft, warriorTop) {
+    objectList.push(new Warrior('div' + (objectList.length + 1), warriorLeft, warriorTop, '50px', '50px', 'img/warrior.png'));
+    return objectList[objectList.length - 1];
+}
+
+
+var objectList = [];
+
+//Дадаємо елементи на сторінку
+objectList.push(new Location('div1', 200, 400, '150px', '150px', 'img/castle.jpg'))
+
+addNewWarrior(200, 200);
+addNewWarrior(100, 100);
+
+
+addWarriorModal = new AddWarriorModalWindow(activationKey = 'N');
+
+
+
+</script>
+
+
+
+<style>
+    body {
+        background-image: url('img/background.jpg'); /* Замініть 'your-image-url.jpg' на URL вашого зображення */
+        background-size: cover; /* Розтягнути зображення на весь екран */
+        background-repeat: no-repeat; /* Не повторювати зображення */
+        background-position: center; /* Вирівнювання зображення по центру */
+    }
+</style>
